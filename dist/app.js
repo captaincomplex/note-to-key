@@ -4,9 +4,31 @@ const OPEN=['E','B','G','D','A','E'];
 const OPEN_SEMITONES=[4,11,7,2,9,4];
 const TRIADS={major:{label:'major',intervals:[0,4,7],formula:['1','3','5']},minor:{label:'minor',intervals:[0,3,7],formula:['1','♭3','5']},diminished:{label:'diminished',intervals:[0,3,6],formula:['1','♭3','♭5']}};
 const CHORD_TYPES={major:{label:'major',intervals:[0,4,7],formula:['1','3','5']},minor:{label:'minor',intervals:[0,3,7],formula:['1','♭3','5']},diminished:{label:'diminished',intervals:[0,3,6],formula:['1','♭3','♭5']},'7':{label:'7',intervals:[0,4,7,10],formula:['1','3','5','♭7']},maj7:{label:'major 7',intervals:[0,4,7,11],formula:['1','3','5','7']},min7:{label:'minor 7',intervals:[0,3,7,10],formula:['1','♭3','5','♭7']}};
+const INTERVALS=[
+  {symbol:'1',name:'Unison',ratio:'1:1',tension:4,description:'The same pitch twice. The frequencies align completely, so the two notes fuse into one centre.'},
+  {symbol:'♭2',name:'Minor second',ratio:'16:15',tension:96,description:'Adjacent frets rub strongly because their frequencies are very close. It creates urgency, bite and an immediate need to move.'},
+  {symbol:'2',name:'Major second',ratio:'9:8',tension:66,description:'A whole-step gap is less rough than a minor second but still feels mobile. It is common in melodies and suspended chords.'},
+  {symbol:'♭3',name:'Minor third',ratio:'6:5',tension:34,description:'This is the colour-defining note in a minor chord. Against the root it sounds dark, inward or plaintive without being harsh.'},
+  {symbol:'3',name:'Major third',ratio:'5:4',tension:27,description:'This is the colour-defining note in a major chord. Four semitones above the root gives the triad its bright, open identity.'},
+  {symbol:'4',name:'Perfect fourth',ratio:'4:3',tension:43,description:'A strong, simple relationship. It sounds stable on its own, but above a bass root it can feel suspended because it sits one fret above the third.'},
+  {symbol:'♭5',name:'Tritone',ratio:'45:32',tension:92,description:'Six semitones split the octave exactly in half. The symmetry makes the tonal direction ambiguous, creating the classic pull inside dominant and diminished chords.'},
+  {symbol:'5',name:'Perfect fifth',ratio:'3:2',tension:10,description:'After the octave, this is the strongest consonance. Its simple frequency relationship reinforces the root without deciding major or minor.'},
+  {symbol:'♭6',name:'Minor sixth',ratio:'8:5',tension:53,description:'A wide, expressive interval and the inversion of a major third. It can sound dramatic or yearning depending on the bass and voicing.'},
+  {symbol:'6',name:'Major sixth',ratio:'5:3',tension:31,description:'Warm and open. It is the inversion of a minor third and often softens a major chord into a more spacious colour.'},
+  {symbol:'♭7',name:'Minor seventh',ratio:'9:5',tension:58,description:'Wide but unresolved. Added to a major triad it creates the dominant seventh sound, whose inner tritone strongly points toward the next chord.'},
+  {symbol:'7',name:'Major seventh',ratio:'15:8',tension:78,description:'Only one fret below the octave, so it presses upward toward the root. In a major-7 chord that tension feels smooth, luminous and sophisticated.'}
+];
+const CHORD_REASONS={
+  major:{title:'The third makes it major.',body:'A major triad is root + major third + perfect fifth: 0, 4 and 7 semitones. “Major” names the third; the perfect fifth is shared with the minor triad.'},
+  minor:{title:'Move the third down one fret.',body:'A minor triad is 0, 3 and 7 semitones. Only the third changes. That one-semitone move changes the chord’s identity while the root and stable fifth stay put.'},
+  diminished:{title:'Two stacked minor thirds.',body:'A diminished triad is 0, 3 and 6 semitones. Flattening the fifth creates a tritone against the root, removing the stable 3:2 fifth and making the chord want to resolve.'},
+  '7':{title:'A tritone creates the pull.',body:'A dominant seventh adds ♭7 to a major triad. The major third and minor seventh sit a tritone apart, pushing strongly toward the root and third of the next chord.'},
+  maj7:{title:'Stable triad, tense leading tone.',body:'A major seventh chord keeps the major triad and adds a note one semitone below the octave. The triad feels settled while the seventh leans delicately upward.'},
+  min7:{title:'Minor colour with a softer edge.',body:'A minor seventh chord adds ♭7 to a minor triad. It has tension, but no dominant tritone between 3 and ♭7, so the pull is gentler and more open-ended.'}
+};
 const SAMPLE_FILES=['audio/high-e.ogg','audio/b.ogg','audio/g.ogg','audio/d.ogg','audio/a.ogg','audio/low-e.ogg'];
 const STRING_MIDI=[64,59,55,50,45,40];
-let target='C', view='all', traceConnections=true, harmonyQuality='major', chordType='major', audioEngine=null, samplePromise=null, progressionTimers=[], startedAt=null, timerId=null, misses=0, found=new Set();
+let target='C', view='all', traceConnections=true, harmonyQuality='major', chordType='major', selectedInterval=4, audioEngine=null, samplePromise=null, progressionTimers=[], startedAt=null, timerId=null, misses=0, found=new Set();
 
 const enharmonicIndex={'D♭':1,'D♯':3,'G♭':6,'G♯':8,'A♯':10};
 const idx=n=>enharmonicIndex[n] ?? CHROMATIC.indexOf(n);
@@ -78,8 +100,9 @@ function getAudio(){
   if(audioEngine)return audioEngine;const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return null;const ctx=new AudioCtx(),input=ctx.createGain(),rumble=ctx.createBiquadFilter(),compressor=ctx.createDynamicsCompressor(),master=ctx.createGain();rumble.type='highpass';rumble.frequency.value=48;rumble.Q.value=.55;compressor.threshold.value=-16;compressor.knee.value=12;compressor.ratio.value=2.2;compressor.attack.value=.004;compressor.release.value=.18;master.gain.value=.78;input.connect(rumble).connect(compressor).connect(master).connect(ctx.destination);audioEngine={ctx,input,buffers:[]};return audioEngine;
 }
 
+async function fetchSample(file,attempt=0){try{const response=await fetch(file);if(!response.ok)throw new Error(`Could not load ${file}`);return await response.arrayBuffer()}catch(error){if(attempt<2){await new Promise(resolve=>setTimeout(resolve,180*(attempt+1)));return fetchSample(file,attempt+1)}throw error}}
 function loadSamples(){
-  const engine=getAudio();if(!engine)return Promise.resolve(null);if(engine.buffers.length===6)return Promise.resolve(engine);if(samplePromise)return samplePromise;samplePromise=Promise.all(SAMPLE_FILES.map(async file=>{const response=await fetch(file);if(!response.ok)throw new Error(`Could not load ${file}`);return engine.ctx.decodeAudioData(await response.arrayBuffer())})).then(buffers=>{engine.buffers=buffers;return engine}).catch(error=>{samplePromise=null;console.error(error);return null});return samplePromise;
+  const engine=getAudio();if(!engine)return Promise.resolve(null);if(engine.buffers.length===6)return Promise.resolve(engine);if(samplePromise)return samplePromise;samplePromise=Promise.all(SAMPLE_FILES.map(async file=>engine.ctx.decodeAudioData(await fetchSample(file)))).then(buffers=>{engine.buffers=buffers;return engine}).catch(error=>{samplePromise=null;console.error(error);return null});return samplePromise;
 }
 
 function bestStringForMidi(midi){let best=5,bestScore=Infinity;STRING_MIDI.forEach((base,s)=>{const fret=midi-base,score=fret>=0&&fret<=12?fret:100+Math.abs(fret);if(score<bestScore){best=s;bestScore=score}});return best}
@@ -142,6 +165,13 @@ function renderChordLab(){
   const def=CHORD_TYPES[chordType];if(!def)return;document.querySelectorAll('#chordMenu button').forEach(b=>b.classList.toggle('active',b.dataset.chord===chordType));document.querySelector('#chordName').textContent=`${target} ${def.label}`;
   const notes=def.intervals.map(n=>CHROMATIC[(idx(target)+n)%12]);document.querySelector('#noteStack').innerHTML=notes.map((n,i)=>`<span class="stack-note" title="${def.formula[i]}">${n}</span>`).join('');
   const heights=[68,112,156,196];document.querySelector('#voicingVisual').innerHTML=notes.map((n,i)=>`<div class="voice-bar" style="height:${heights[i]}px"><span>${n}</span></div>`).join('');
+  renderRelationshipLab();
+}
+
+function renderRelationshipLab(){
+  const rail=document.querySelector('#intervalRail');if(!rail)return;rail.innerHTML=INTERVALS.map((interval,i)=>`<button class="interval-step ${i===selectedInterval?'active':''}" data-interval="${i}" aria-pressed="${i===selectedInterval}"><b>${CHROMATIC[(idx(target)+i)%12]}</b><span>${interval.symbol}</span></button>`).join('');rail.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{selectedInterval=+button.dataset.interval;renderRelationshipLab()}));
+  const interval=INTERVALS[selectedInterval],other=CHROMATIC[(idx(target)+selectedInterval)%12],stability=interval.tension<=18?'VERY STABLE':interval.tension<=40?'CONSONANT':interval.tension<=65?'COLOURFUL':'DISSONANT';document.querySelector('#intervalSymbol').textContent=interval.symbol;document.querySelector('#intervalDistance').textContent=`${selectedInterval} ${selectedInterval===1?'SEMITONE':'SEMITONES'} · ${target} → ${other}`;document.querySelector('#intervalName').textContent=interval.name;document.querySelector('#intervalDescription').textContent=interval.description;document.querySelector('#intervalRatio').textContent=`Idealised frequency ratio: ${interval.ratio}. Equal-tempered frets closely approximate this relationship.`;document.querySelector('#stabilityLabel').textContent=stability;document.querySelector('#tensionBar').style.width=`${interval.tension}%`;
+  const def=CHORD_TYPES[chordType],reason=CHORD_REASONS[chordType],steps=def.intervals.slice(1).map((n,i)=>n-def.intervals[i]);document.querySelector('#chordReason').innerHTML=`<div class="reason-formula">${def.formula.map((f,i)=>`${i?'<i>+</i>':''}<span>${f}</span>`).join('')}</div><div class="reason-copy"><small>${target.toUpperCase()} ${def.label.toUpperCase()}</small><h4>${reason.title}</h4><p>${reason.body}</p></div><div class="semitone-stack"><b>${steps.join(' + ')}</b><span>SEMITONES BETWEEN STACKED NOTES</span></div>`;
 }
 
 function playChordAt(rootIndex,type='major',delay=0,strum=.028){
@@ -182,5 +212,6 @@ document.querySelectorAll('#chordMenu button').forEach(btn=>btn.addEventListener
 document.querySelector('#playTriad').addEventListener('click',()=>playChordAt(idx(target),harmonyQuality));
 document.querySelector('#playArpeggio').addEventListener('click',()=>{const def=TRIADS[harmonyQuality],root=60+idx(target);def.intervals.forEach((n,i)=>playPitch(root+n,i*.42,.75))});
 document.querySelector('#strumChord').addEventListener('click',()=>playSelectedChord());
+document.querySelector('#playInterval').addEventListener('click',()=>{const root=60+idx(target);playPitch(root,0,.78);playPitch(root+selectedInterval,.035,.72)});
 document.querySelector('#playProgression').addEventListener('click',playCircleProgression);
 setTarget('C');
