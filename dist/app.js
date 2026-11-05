@@ -4,7 +4,9 @@ const OPEN=['E','B','G','D','A','E'];
 const OPEN_SEMITONES=[4,11,7,2,9,4];
 const TRIADS={major:{label:'major',intervals:[0,4,7],formula:['1','3','5']},minor:{label:'minor',intervals:[0,3,7],formula:['1','♭3','5']},diminished:{label:'diminished',intervals:[0,3,6],formula:['1','♭3','♭5']}};
 const CHORD_TYPES={major:{label:'major',intervals:[0,4,7],formula:['1','3','5']},minor:{label:'minor',intervals:[0,3,7],formula:['1','♭3','5']},diminished:{label:'diminished',intervals:[0,3,6],formula:['1','♭3','♭5']},'7':{label:'7',intervals:[0,4,7,10],formula:['1','3','5','♭7']},maj7:{label:'major 7',intervals:[0,4,7,11],formula:['1','3','5','7']},min7:{label:'minor 7',intervals:[0,3,7,10],formula:['1','♭3','5','♭7']}};
-let target='C', view='all', traceConnections=true, harmonyQuality='major', chordType='major', audioEngine=null, startedAt=null, timerId=null, misses=0, found=new Set();
+const SAMPLE_FILES=['audio/high-e.ogg','audio/b.ogg','audio/g.ogg','audio/d.ogg','audio/a.ogg','audio/low-e.ogg'];
+const STRING_MIDI=[64,59,55,50,45,40];
+let target='C', view='all', traceConnections=true, harmonyQuality='major', chordType='major', audioEngine=null, samplePromise=null, progressionTimers=[], startedAt=null, timerId=null, misses=0, found=new Set();
 
 const enharmonicIndex={'D♭':1,'D♯':3,'G♭':6,'G♯':8,'A♯':10};
 const idx=n=>enharmonicIndex[n] ?? CHROMATIC.indexOf(n);
@@ -64,6 +66,7 @@ function drawConnections(board){
 }
 
 function setTarget(note){
+  clearProgressionAnimation();
   target=CHROMATIC[idx(note)];document.querySelectorAll('[data-note]').forEach(el=>el.textContent=target);document.querySelector('#heroNote').textContent=target;
   buildPicker();buildBoard(document.querySelector('#learnBoard'));resetQuiz();
   const positionCount=targetCells().length;
@@ -72,19 +75,23 @@ function setTarget(note){
 }
 
 function getAudio(){
-  if(audioEngine)return audioEngine;const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return null;const ctx=new AudioCtx(),input=ctx.createGain(),warmth=ctx.createBiquadFilter(),body=ctx.createBiquadFilter(),air=ctx.createBiquadFilter(),compressor=ctx.createDynamicsCompressor(),master=ctx.createGain();
-  warmth.type='lowshelf';warmth.frequency.value=260;warmth.gain.value=5;body.type='peaking';body.frequency.value=118;body.Q.value=1.15;body.gain.value=5.5;air.type='highshelf';air.frequency.value=2100;air.gain.value=-9;compressor.threshold.value=-18;compressor.knee.value=16;compressor.ratio.value=3;compressor.attack.value=.005;compressor.release.value=.22;master.gain.value=.72;input.connect(warmth).connect(body).connect(air).connect(compressor).connect(master).connect(ctx.destination);audioEngine={ctx,input};return audioEngine;
+  if(audioEngine)return audioEngine;const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return null;const ctx=new AudioCtx(),input=ctx.createGain(),rumble=ctx.createBiquadFilter(),compressor=ctx.createDynamicsCompressor(),master=ctx.createGain();rumble.type='highpass';rumble.frequency.value=48;rumble.Q.value=.55;compressor.threshold.value=-16;compressor.knee.value=12;compressor.ratio.value=2.2;compressor.attack.value=.004;compressor.release.value=.18;master.gain.value=.78;input.connect(rumble).connect(compressor).connect(master).connect(ctx.destination);audioEngine={ctx,input,buffers:[]};return audioEngine;
 }
 
-function playPitch(midi,delay=0,velocity=1){
-  const engine=getAudio();if(!engine)return;const {ctx,input}=engine;if(ctx.state==='suspended')ctx.resume();const freq=440*Math.pow(2,(midi-69)/12),duration=2.35,rate=ctx.sampleRate,length=Math.floor(rate*duration),period=Math.max(2,Math.round(rate/freq)),buffer=ctx.createBuffer(1,length,rate),data=buffer.getChannelData(0),seed=new Float32Array(period);
-  let last=0;for(let i=0;i<period;i++){const noise=Math.random()*2-1;last=.72*last+.28*noise;const pickShape=Math.sin(Math.PI*i/period);seed[i]=last*pickShape*.72}for(let i=0;i<period;i++)data[i]=seed[i];
-  const damping=Math.max(.9905,Math.min(.9976,.9982-freq/120000));for(let i=period;i<length;i++){const a=data[i-period],b=data[i-period+1]||a,c=i>period+1?data[i-period-1]:a;data[i]=damping*(.18*c+.64*a+.18*b)}
-  const source=ctx.createBufferSource(),noteFilter=ctx.createBiquadFilter(),gain=ctx.createGain();source.buffer=buffer;noteFilter.type='lowpass';noteFilter.frequency.value=Math.min(3600,1700+freq*2.2);noteFilter.Q.value=.45;const at=ctx.currentTime+delay;gain.gain.setValueAtTime(.001,at);gain.gain.exponentialRampToValueAtTime(.72*velocity,at+.008);gain.gain.exponentialRampToValueAtTime(.001,at+duration);source.connect(noteFilter).connect(gain).connect(input);source.start(at);source.stop(at+duration+.05);
+function loadSamples(){
+  const engine=getAudio();if(!engine)return Promise.resolve(null);if(engine.buffers.length===6)return Promise.resolve(engine);if(samplePromise)return samplePromise;samplePromise=Promise.all(SAMPLE_FILES.map(async file=>{const response=await fetch(file);if(!response.ok)throw new Error(`Could not load ${file}`);return engine.ctx.decodeAudioData(await response.arrayBuffer())})).then(buffers=>{engine.buffers=buffers;return engine}).catch(error=>{samplePromise=null;console.error(error);return null});return samplePromise;
 }
+
+function bestStringForMidi(midi){let best=5,bestScore=Infinity;STRING_MIDI.forEach((base,s)=>{const fret=midi-base,score=fret>=0&&fret<=12?fret:100+Math.abs(fret);if(score<bestScore){best=s;bestScore=score}});return best}
+
+async function playSample(midi,stringIndex=null,delay=0,velocity=1){
+  const engine=await loadSamples();if(!engine)return;if(engine.ctx.state==='suspended')await engine.ctx.resume();const s=stringIndex??bestStringForMidi(midi),source=engine.ctx.createBufferSource(),gain=engine.ctx.createGain(),at=engine.ctx.currentTime+delay;source.buffer=engine.buffers[s];source.playbackRate.value=Math.pow(2,(midi-STRING_MIDI[s])/12);gain.gain.setValueAtTime(Math.max(.001,.88*velocity),at);gain.gain.exponentialRampToValueAtTime(.001,at+Math.min(4.2,source.buffer.duration/source.playbackRate.value));source.connect(gain).connect(engine.input);source.start(at);
+}
+
+function playPitch(midi,delay=0,velocity=1){return playSample(midi,null,delay,velocity)}
 
 function pluck(s,f,sourceCell,delay=0){
-  vibrateString(sourceCell?.closest('.fretboard'),s);playPitch([64,59,55,50,45,40][s]+f,delay,.92);
+  vibrateString(sourceCell?.closest('.fretboard'),s);playSample(STRING_MIDI[s]+f,s,delay,.92);
 }
 
 function vibrateString(board,s){
@@ -155,8 +162,14 @@ function ringPath(r1,r2,a1,a2){const p1=polar(r1,a1),p2=polar(r1,a2),p3=polar(r2
 
 function renderCircle(){
   const svg=document.querySelector('#circleSvg');if(!svg)return;svg.innerHTML='';const activeIndex=idx(target);
-  CIRCLE.forEach((entry,n)=>{const start=-105+n*30,end=start+30,mid=start+15,majorPos=polar(202,mid),minorPos=polar(143,mid),g=document.createElementNS('http://www.w3.org/2000/svg','g');g.classList.add('circle-segment');if(entry.i===activeIndex)g.classList.add('active');g.innerHTML=`<path class="circle-major" d="${ringPath(238,169,start,end)}"></path><path class="circle-minor" d="${ringPath(164,114,start,end)}"></path><text class="circle-label" x="${majorPos.x}" y="${majorPos.y+6}">${entry.label}</text><text class="circle-minor-label" x="${minorPos.x}" y="${minorPos.y+4}">${entry.minor.replace(' minor','m')}</text>`;g.addEventListener('click',()=>setTarget(CHROMATIC[entry.i]));svg.append(g)});
-  const entry=CIRCLE.find(x=>x.i===activeIndex)||CIRCLE[0],iv=CHROMATIC[(activeIndex+5)%12],v=CHROMATIC[(activeIndex+7)%12];document.querySelector('#circleKey').textContent=entry.label;document.querySelector('#circleMinor').textContent=entry.minor;document.querySelector('#keySignature').textContent=entry.sig;document.querySelector('#keyName').textContent=entry.label;document.querySelector('#progression').innerHTML=[['I',target],['IV',iv],['V',v],['I',target]].map(([d,n])=>`<div class="degree-card"><b>${d}</b><span>${n}</span></div>`).join('');
+  CIRCLE.forEach((entry,n)=>{const start=-105+n*30,end=start+30,mid=start+15,majorPos=polar(202,mid),minorPos=polar(143,mid),g=document.createElementNS('http://www.w3.org/2000/svg','g');g.classList.add('circle-segment');g.dataset.keyIndex=entry.i;if(entry.i===activeIndex)g.classList.add('active');g.innerHTML=`<path class="circle-major" d="${ringPath(238,169,start,end)}"></path><path class="circle-minor" d="${ringPath(164,114,start,end)}"></path><text class="circle-label" x="${majorPos.x}" y="${majorPos.y+6}">${entry.label}</text><text class="circle-minor-label" x="${minorPos.x}" y="${minorPos.y+4}">${entry.minor.replace(' minor','m')}</text>`;g.addEventListener('click',()=>setTarget(CHROMATIC[entry.i]));svg.append(g)});
+  const entry=CIRCLE.find(x=>x.i===activeIndex)||CIRCLE[0],ivIndex=(activeIndex+5)%12,vIndex=(activeIndex+7)%12,iv=CHROMATIC[ivIndex],v=CHROMATIC[vIndex];document.querySelector('#circleKey').textContent=entry.label;document.querySelector('#circleMinor').textContent=entry.minor;document.querySelector('#keySignature').textContent=entry.sig;document.querySelector('#keyName').textContent=entry.label;document.querySelector('#progression').innerHTML=[['I',target,activeIndex],['IV',iv,ivIndex],['V',v,vIndex],['I',target,activeIndex]].map(([d,n,k],step)=>`<div class="degree-card" data-key-index="${k}" data-step="${step}"><b>${d}</b><span>${n}</span></div>`).join('');
+}
+
+function clearProgressionAnimation(){progressionTimers.forEach(clearTimeout);progressionTimers=[];document.querySelectorAll('.circle-segment.playing,.degree-card.playing').forEach(el=>el.classList.remove('playing'))}
+function highlightProgressionStep(keyIndex,step){document.querySelectorAll('.circle-segment.playing,.degree-card.playing').forEach(el=>el.classList.remove('playing'));document.querySelector(`.circle-segment[data-key-index="${keyIndex}"]`)?.classList.add('playing');document.querySelector(`.degree-card[data-step="${step}"]`)?.classList.add('playing')}
+function playCircleProgression(){
+  clearProgressionAnimation();const r=idx(target),steps=[[r,0],[r+5,1.15],[r+7,2.3],[r,3.45]];steps.forEach(([root,delay],step)=>{playChordAt(root%12,'major',delay,.022);progressionTimers.push(setTimeout(()=>highlightProgressionStep(root%12,step),delay*1000))});progressionTimers.push(setTimeout(clearProgressionAnimation,4600));
 }
 
 document.querySelectorAll('.view-tab[data-view]').forEach(btn=>btn.addEventListener('click',()=>{view=btn.dataset.view;document.querySelectorAll('.view-tab[data-view]').forEach(b=>b.classList.toggle('active',b===btn));document.querySelector('#learnBoard').classList.toggle('anchor-hidden',view==='anchors')}));
@@ -169,5 +182,5 @@ document.querySelectorAll('#chordMenu button').forEach(btn=>btn.addEventListener
 document.querySelector('#playTriad').addEventListener('click',()=>playChordAt(idx(target),harmonyQuality));
 document.querySelector('#playArpeggio').addEventListener('click',()=>{const def=TRIADS[harmonyQuality],root=60+idx(target);def.intervals.forEach((n,i)=>playPitch(root+n,i*.42,.75))});
 document.querySelector('#strumChord').addEventListener('click',()=>playSelectedChord());
-document.querySelector('#playProgression').addEventListener('click',()=>{const r=idx(target);[[r,0],[r+5,1.15],[r+7,2.3],[r,3.45]].forEach(([root,delay])=>playChordAt(root%12,'major',delay,.022))});
+document.querySelector('#playProgression').addEventListener('click',playCircleProgression);
 setTarget('C');
