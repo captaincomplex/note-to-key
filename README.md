@@ -1,6 +1,6 @@
-# One Note, Everywhere — Guitar Theory
+# Note to Key — Interactive Guitar Theory
 
-An interactive, browser-based guitar theory trainer for learning:
+Understand the guitar, one note at a time. Note to Key is an interactive, browser-based guitar theory trainer for learning:
 
 - every position of a selected note on the fretboard;
 - root, third, and fifth interval roles;
