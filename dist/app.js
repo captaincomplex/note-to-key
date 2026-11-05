@@ -22,7 +22,7 @@ function buildBoard(el,quiz=false){
     const label=document.createElement('button');label.className='cell';label.type='button';label.dataset.string=s;label.dataset.fret=0;label.innerHTML=`<span class="string-letter">${OPEN[s]}</span>`;
     label.setAttribute('aria-label',`${OPEN[s]} string, open ${OPEN[s]}`);
     const openMatch=OPEN[s]===target;
-    if(openMatch){label.dataset.target='true';label.classList.add('open-target');if(!quiz)label.addEventListener('click',()=>pluck(s,0));else label.addEventListener('click',()=>guess(label,true))}
+    if(openMatch){label.dataset.target='true';label.classList.add('open-target');label.innerHTML=`<span class="note-dot anchor">${target}</span>`;if(!quiz)label.addEventListener('click',()=>pluck(s,0,label));else label.addEventListener('click',()=>guess(label,true))}
     else if(quiz)label.addEventListener('click',()=>guess(label,false));
     else label.tabIndex=-1;
     el.append(label);
@@ -35,7 +35,7 @@ function buildBoard(el,quiz=false){
       if(match){cell.dataset.target='true';const dot=document.createElement('span');dot.className='note-dot';if(s===0||s===5||f===12)dot.classList.add('anchor');dot.textContent=target;cell.append(dot)}
       else{const num=document.createElement('span');num.className='fret-num';num.textContent=s===0?f:'';cell.append(num)}
       if(quiz)cell.addEventListener('click',()=>guess(cell,match));
-      else if(match)cell.addEventListener('click',()=>pluck(s,f));
+      else if(match)cell.addEventListener('click',()=>pluck(s,f,cell));
       else cell.tabIndex=-1;
       el.append(cell);
     }
@@ -50,9 +50,14 @@ function drawConnections(board){
   const targets=[...board.querySelectorAll('[data-target="true"]')];if(targets.length<2)return;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('connection-layer');
   const w=board.clientWidth,h=board.clientHeight;svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
-  const points=targets.map(el=>({x:el.offsetLeft+el.offsetWidth/2,y:el.offsetTop+el.offsetHeight/2}));
-  const remaining=points.slice(1),connected=[points[0]];
-  while(remaining.length){let best={d:Infinity};for(const a of connected)for(const b of remaining){const d=Math.hypot((a.x-b.x)*.75,(a.y-b.y)*2.3);if(d<best.d)best={a,b,d}}const {a,b}=best,curve=(b.y-a.y)*.18;const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.classList.add('connection-path');path.style.animationDelay=`${connected.length*.12}s`;path.setAttribute('d',`M ${a.x} ${a.y} C ${a.x+curve} ${(a.y+b.y)/2}, ${b.x-curve} ${(a.y+b.y)/2}, ${b.x} ${b.y}`);svg.append(path);connected.push(b);remaining.splice(remaining.indexOf(b),1)}
+  const points=targets.map(el=>{const s=+el.dataset.string,f=+el.dataset.fret;return{x:el.offsetLeft+el.offsetWidth/2,y:el.offsetTop+el.offsetHeight/2,midi:[64,59,55,50,45,40][s]+f}});
+  const byMidi=new Map();for(const point of points){if(!byMidi.has(point.midi))byMidi.set(point.midi,[]);byMidi.get(point.midi).push(point)}const groups=[...byMidi.entries()].sort((a,b)=>a[0]-b[0]);let routeIndex=0;
+  const addRoute=(a,b,kind)=>{const path=document.createElementNS('http://www.w3.org/2000/svg','path'),midY=(a.y+b.y)/2;path.classList.add('connection-path',kind);path.style.animationDelay=`${routeIndex++*.13}s`;path.setAttribute('d',`M ${a.x} ${a.y} V ${midY} H ${b.x} V ${b.y}`);svg.append(path);return{x:(a.x+b.x)/2,y:midY}};
+  for(const [,group] of groups){const ordered=group.slice().sort((a,b)=>a.y-b.y);for(let i=0;i<ordered.length-1;i++)addRoute(ordered[i],ordered[i+1],'unison-route')}
+  for(let i=0;i<groups.length-1;i++){
+    const lower=groups[i][1],upper=groups[i+1][1];let best={d:Infinity};for(const a of lower)for(const b of upper){const d=Math.hypot(a.x-b.x,a.y-b.y);if(d<best.d)best={a,b,d}}
+    const at=addRoute(best.a,best.b,'octave-route'),label=document.createElementNS('http://www.w3.org/2000/svg','text');label.classList.add('route-label');label.setAttribute('x',at.x);label.setAttribute('y',at.y-7);label.textContent='+12';svg.append(label);
+  }
   board.append(svg);
 }
 
@@ -63,8 +68,9 @@ function setTarget(note){
   document.querySelector('#shapeStrip').innerHTML=`<span class="shape-chip"><i></i>${positionCount} positions</span><span class="shape-chip"><i></i>6 strings</span><span class="shape-chip"><i></i>1 repeating pattern</span>`;
 }
 
-function pluck(s,f){
+function pluck(s,f,sourceCell){
   const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;
+  vibrateString(sourceCell?.closest('.fretboard'),s);
   const ctx=new AudioCtx(),midi=[64,59,55,50,45,40][s]+f,freq=440*Math.pow(2,(midi-69)/12),duration=1.7,rate=ctx.sampleRate,length=Math.floor(rate*duration),period=Math.max(2,Math.round(rate/freq));
   const buffer=ctx.createBuffer(1,length,rate),data=buffer.getChannelData(0);for(let i=0;i<period;i++)data[i]=(Math.random()*2-1)*.72;
   for(let i=period;i<length;i++)data[i]=.9965*.5*(data[i-period]+data[i-period+1]);
@@ -72,11 +78,15 @@ function pluck(s,f){
   source.connect(body).connect(air).connect(gain).connect(ctx.destination);source.start();
 }
 
+function vibrateString(board,s){
+  if(!board)return;const cells=[...board.querySelectorAll(`[data-string="${s}"]`)];cells.forEach(cell=>{cell.classList.remove('string-vibrating');void cell.offsetWidth;cell.classList.add('string-vibrating')});setTimeout(()=>cells.forEach(cell=>cell.classList.remove('string-vibrating')),560);
+}
+
 function guess(cell,match){
   if(document.querySelector('#quizResult').classList.contains('show'))return;
   if(!startedAt){startedAt=Date.now();timerId=setInterval(updateTimer,500)}
   const key=keyFor(cell.dataset.string,cell.dataset.fret);
-  if(match){if(found.has(key))return;found.add(key);cell.classList.add('correct');pluck(+cell.dataset.string,+cell.dataset.fret)}
+  if(match){if(found.has(key))return;found.add(key);cell.classList.add('correct');pluck(+cell.dataset.string,+cell.dataset.fret,cell)}
   else{misses++;cell.classList.remove('wrong');void cell.offsetWidth;cell.classList.add('wrong')}
   updateScore();
   if(found.size===targetCells().length)finishQuiz();
