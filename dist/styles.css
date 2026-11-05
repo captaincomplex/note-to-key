@@ -8,3 +8,23 @@ footer{background:var(--paper);color:var(--ink);padding:76px 0}.footer-inner{dis
 @keyframes pop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
 @media(max-width:800px){.wrap{width:min(100% - 28px,var(--max))}.top-meta{display:none}.hero{padding:60px 0 75px}.hero h1{font-size:58px}.picker-inner,.section-head,.pattern-grid{grid-template-columns:1fr;gap:24px}.note-picker{grid-template-columns:repeat(4,1fr)}.rule-grid{grid-template-columns:1fr}.pattern-grid{gap:54px}.test-head{align-items:start}.scoreboard{width:100%}.scoreboard>div{flex:1;min-width:0}.footer-inner{display:block}.footer-inner a{display:inline-block;margin-top:40px}.quiz-result.show{align-items:flex-start;flex-wrap:wrap}.quiz-result button{margin-left:68px}.topbar{height:62px;padding:0 16px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Refined fretboard: the string letter is the open position, followed by frets 1–12. */
+.view-tabs{flex-wrap:wrap}.trace-tab.active{color:var(--cyan);box-shadow:inset 0 0 0 1px rgba(84,217,233,.35)}
+.fretboard{grid-template-columns:56px repeat(12,1fr)}
+.fretboard>.cell{background:transparent;color:inherit;border-right:1px solid rgba(52,36,24,.42);font-size:inherit;font-weight:inherit;cursor:pointer}
+.fretboard>.cell::after{display:block}
+.fretboard>.cell:nth-child(13n+1){background:#111923;color:#e7e9e3;border-right:5px solid #eee7d8;font-size:12px;font-weight:900}
+.fretboard>.cell:nth-child(13n+1)::after{display:none}
+.fretboard>.cell.open-target{background:#293927;color:var(--acid)}
+.string-letter{z-index:3}.note-dot{z-index:3}
+.connection-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible}
+.connection-path{fill:none;stroke:var(--cyan);stroke-width:3;stroke-linecap:round;stroke-dasharray:9 8;filter:drop-shadow(0 0 4px rgba(84,217,233,.75));animation:trace 2.2s linear infinite,draw .7s ease both}
+.connections-off .connection-layer{display:none}
+.quiz-board .cell:hover{background:rgba(199,244,100,.2)}
+.quiz-board>.cell.open-target{background:#111923;color:#e7e9e3}
+.quiz-board>.cell.correct.open-target{background:var(--acid);color:var(--ink)}
+.animated-arrow{animation:nudge 1.6s ease-in-out infinite}
+@keyframes trace{to{stroke-dashoffset:-34}}
+@keyframes draw{from{opacity:0;stroke-dasharray:0 1000}to{opacity:1}}
+@keyframes nudge{0%,100%{transform:translate(0,0)}50%{transform:translate(6px,-6px)}}
