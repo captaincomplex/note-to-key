@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#10161f" />
+  <meta name="description" content="A focused, interactive way to memorise one note everywhere on the guitar fretboard." />
+  <title>One Note, Everywhere — Fretboard trainer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="One Note, Everywhere home">
+      <span class="brand-dot" aria-hidden="true"></span>
+      ONE NOTE, EVERYWHERE
+    </a>
+    <div class="top-meta"><span>STANDARD TUNING</span><span class="divider"></span><span>12 FRETS</span></div>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap">
+      <p class="eyebrow">A 5-minute fretboard drill</p>
+      <h1>Don’t memorise<br />the fretboard.</h1>
+      <div class="hero-turn"><span>Memorise</span><button class="hero-note" id="heroNote" aria-label="Change target note">C</button><span>— everywhere.</span></div>
+      <p class="hero-copy">One note. Six strings. A handful of shapes your fingers can actually remember. Pick a note, see the pattern, then prove you know it.</p>
+      <a class="start-link" href="#learn"><span>Start with one note</span><span aria-hidden="true">↓</span></a>
+    </section>
+
+    <section class="picker-panel" aria-labelledby="pick-title">
+      <div class="wrap picker-inner">
+        <div>
+          <p class="step-label">01 / PICK</p>
+          <h2 id="pick-title">Choose today’s note.</h2>
+          <p>Stay with it until finding it feels automatic.</p>
+        </div>
+        <div class="note-picker" id="notePicker" role="group" aria-label="Choose a note"></div>
+      </div>
+    </section>
+
+    <section class="learn wrap" id="learn" aria-labelledby="learn-title">
+      <div class="section-head">
+        <div>
+          <p class="step-label">02 / SEE</p>
+          <h2 id="learn-title">Meet <span data-note>C</span> on every string.</h2>
+        </div>
+        <p class="section-copy">Read from the thick low E string at the bottom, just like looking down at your guitar. Tap a glowing note to hear it.</p>
+      </div>
+
+      <div class="board-card">
+        <div class="board-toolbar">
+          <div class="view-tabs" role="group" aria-label="Fretboard display">
+            <button class="view-tab active" data-view="all">All positions</button>
+            <button class="view-tab" data-view="anchors">Anchors only</button>
+          </div>
+          <div class="legend"><span class="legend-dot"></span><span><span data-note>C</span> notes</span></div>
+        </div>
+        <div class="fretboard-scroll"><div id="learnBoard" class="fretboard" aria-label="Interactive guitar fretboard"></div></div>
+        <div class="shape-strip" id="shapeStrip"></div>
+      </div>
+
+      <div class="rule-grid">
+        <article><span class="rule-num">1</span><div><h3>Start with the edges</h3><p>Find <span data-note>C</span> on both E strings. Same fret, two instant wins.</p></div></article>
+        <article><span class="rule-num">2</span><div><h3>See octaves, not dots</h3><p>From strings 6→4 and 5→3, move two strings up and two frets right.</p></div></article>
+        <article><span class="rule-num">3</span><div><h3>Cross the B-string seam</h3><p>Shapes shift by one fret when they cross between the G and B strings.</p></div></article>
+      </div>
+    </section>
+
+    <section class="pattern-section">
+      <div class="wrap pattern-grid">
+        <div>
+          <p class="step-label dark">03 / CONNECT</p>
+          <h2>Turn six dots<br />into three moves.</h2>
+          <p class="pattern-copy">The note names repeat, but the geometry does the remembering. Trace these moves with your eyes, then with your hand.</p>
+        </div>
+        <div class="moves">
+          <div class="move"><span class="move-icon">↗</span><div><b>Two over, two up</b><small>The octave shape across most strings</small></div></div>
+          <div class="move"><span class="move-icon">⇅</span><div><b>Same fret, both E strings</b><small>One location learned twice</small></div></div>
+          <div class="move"><span class="move-icon">+1</span><div><b>Add one at the seam</b><small>Compensate when crossing the B string</small></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="test wrap" id="test" aria-labelledby="test-title">
+      <div class="section-head test-head">
+        <div><p class="step-label">04 / TEST</p><h2 id="test-title">Now find every <span data-note>C</span>.</h2></div>
+        <div class="scoreboard"><div><b id="foundCount">0</b><span>FOUND</span></div><div><b id="missCount">0</b><span>MISSES</span></div><div><b id="timer">0:00</b><span>TIME</span></div></div>
+      </div>
+      <div class="quiz-card" id="quizCard">
+        <div class="quiz-instruction"><span class="pulse-dot"></span><span>Tap every <b data-note>C</b> between the open strings and fret 12.</span><button id="resetQuiz">Reset</button></div>
+        <div class="fretboard-scroll"><div id="quizBoard" class="fretboard quiz-board" aria-label="Fretboard quiz"></div></div>
+        <div class="progress-track"><span id="progressBar"></span></div>
+        <div class="quiz-result" id="quizResult" aria-live="polite">
+          <span class="result-mark">✓</span><div><small>PATTERN LOCKED IN</small><h3>You found every <span data-note>C</span>.</h3><p id="resultDetail"></p></div><button id="nextNote">Choose another note →</button>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap footer-inner"><div><p class="footer-kicker">TODAY’S PRACTICE</p><h2>One note. Five minutes.<br />Then go play music.</h2></div><a href="#top">Start again ↑</a></div>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
