@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#10161f" />
-  <meta name="description" content="A focused, interactive way to memorise one note everywhere on the guitar fretboard." />
-  <title>One Note, Everywhere — Fretboard trainer</title>
+  <meta name="description" content="An interactive guitar-theory trainer for notes, intervals, chords and the circle of fifths." />
+  <title>One Note, Everywhere — Interactive guitar theory</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,16 +14,17 @@
       <span class="brand-dot" aria-hidden="true"></span>
       ONE NOTE, EVERYWHERE
     </a>
+    <nav class="top-nav" aria-label="Lessons"><a href="#learn">Notes</a><a href="#intervals">Intervals</a><a href="#chords">Chords</a><a href="#circle">Circle</a></nav>
     <div class="top-meta"><span>STANDARD TUNING</span><span class="divider"></span><span>12 FRETS</span></div>
   </header>
 
   <main id="top">
     <section class="hero wrap">
-      <p class="eyebrow">A 5-minute fretboard drill</p>
+      <p class="eyebrow">Interactive guitar theory</p>
       <h1>Don’t memorise<br />the fretboard.</h1>
       <div class="hero-turn"><span>Memorise</span><button class="hero-note" id="heroNote" aria-label="Change target note">C</button><span>— everywhere.</span></div>
-      <p class="hero-copy">One note. Six strings. A handful of shapes your fingers can actually remember. Pick a note, see the pattern, then prove you know it.</p>
-      <a class="start-link" href="#learn"><span>Start with one note</span><span aria-hidden="true">↓</span></a>
+      <p class="hero-copy">Start with one note. Add its third and fifth. Hear a chord appear — then place it inside a whole key.</p>
+      <a class="start-link" href="#learn"><span>Start the pathway</span><span aria-hidden="true">↓</span></a>
     </section>
 
     <section class="picker-panel" aria-labelledby="pick-title">
@@ -81,9 +82,66 @@
       </div>
     </section>
 
+    <section class="harmony-section wrap" id="intervals" aria-labelledby="interval-title">
+      <div class="section-head">
+        <div><p class="step-label">04 / INTERVALS</p><h2 id="interval-title">A note becomes<br />a chord.</h2></div>
+        <p class="section-copy">Choose the flavour. The root tells you where home is; the third gives the mood; the fifth gives the chord its frame.</p>
+      </div>
+      <div class="theory-controls">
+        <div class="control-group"><span>KEY CENTRE</span><div class="compact-note-picker" id="harmonyRoot" role="group" aria-label="Choose harmony root"></div></div>
+        <div class="control-group"><span>TRIAD QUALITY</span><div class="segmented" id="triadQuality" role="group" aria-label="Choose triad quality"><button class="active" data-quality="major">Major</button><button data-quality="minor">Minor</button><button data-quality="diminished">Diminished</button></div></div>
+      </div>
+      <div class="interval-summary">
+        <div class="chord-identity"><small>YOU’RE BUILDING</small><strong id="triadName">C major</strong><div class="formula" id="triadFormula"></div></div>
+        <div class="tone-roles" id="toneRoles"></div>
+        <div class="hear-actions"><button class="action-primary" id="playTriad">▶ Play chord</button><button class="action-secondary" id="playArpeggio">Play one by one</button></div>
+      </div>
+      <div class="board-card interval-card">
+        <div class="board-toolbar"><div class="interval-legend"><span><i class="role-dot root"></i>Root</span><span><i class="role-dot third"></i>Third</span><span><i class="role-dot fifth"></i>Fifth</span></div><span class="board-hint">Tap any tone to hear its role</span></div>
+        <div class="fretboard-scroll"><div id="intervalBoard" class="fretboard role-board" aria-label="Root third and fifth fretboard"></div></div>
+      </div>
+      <div class="lesson-cards"><article><span>ROOT / 1</span><h3>Home</h3><p>The note the chord is named after. Everything is heard in relation to it.</p></article><article><span>THIRD / 3 or ♭3</span><h3>Mood</h3><p>Major thirds feel open; minor thirds pull inward. One fret changes the colour.</p></article><article><span>FIFTH / 5 or ♭5</span><h3>Frame</h3><p>The perfect fifth sounds stable. Flatten it and the chord becomes diminished.</p></article></div>
+    </section>
+
+    <section class="chord-lab" id="chords" aria-labelledby="chord-title">
+      <div class="wrap">
+        <div class="section-head chord-head"><div><p class="step-label dark">05 / CHORD LAB</p><h2 id="chord-title">Stack the sound.</h2></div><p>Every chord is a recipe of intervals. Change one ingredient and hear the emotional shift.</p></div>
+        <div class="chord-workbench">
+          <div class="chord-menu" id="chordMenu" role="group" aria-label="Choose chord type">
+            <button class="active" data-chord="major"><b>Major</b><small>1 · 3 · 5</small></button>
+            <button data-chord="minor"><b>Minor</b><small>1 · ♭3 · 5</small></button>
+            <button data-chord="7"><b>Dominant 7</b><small>1 · 3 · 5 · ♭7</small></button>
+            <button data-chord="maj7"><b>Major 7</b><small>1 · 3 · 5 · 7</small></button>
+            <button data-chord="min7"><b>Minor 7</b><small>1 · ♭3 · 5 · ♭7</small></button>
+          </div>
+          <div class="chord-stage">
+            <div class="chord-display"><small>CURRENT CHORD</small><h3 id="chordName">C major</h3><div class="note-stack" id="noteStack"></div><button class="strum-button" id="strumChord"><span>♪</span> Strum chord</button></div>
+            <div class="voicing-visual" id="voicingVisual" aria-label="Chord tone stack"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="circle-section wrap" id="circle" aria-labelledby="circle-title">
+      <div class="section-head">
+        <div><p class="step-label">06 / CIRCLE OF FIFTHS</p><h2 id="circle-title">See the family<br />around the key.</h2></div>
+        <p class="section-copy">Move clockwise by fifths. Neighbouring keys share most of their notes — which is why I, IV and V feel like a natural musical sentence.</p>
+      </div>
+      <div class="circle-layout">
+        <div class="circle-wrap"><svg id="circleSvg" viewBox="0 0 520 520" role="img" aria-label="Interactive circle of fifths"></svg><div class="circle-centre"><small>KEY</small><strong id="circleKey">C</strong><span id="circleMinor">A minor</span></div></div>
+        <div class="key-panel">
+          <p class="key-signature" id="keySignature">NO SHARPS OR FLATS</p>
+          <h3><span id="keyName">C</span> major’s home chords</h3>
+          <div class="progression" id="progression"></div>
+          <button class="action-primary wide" id="playProgression">▶ Play I – IV – V – I</button>
+          <div class="key-tip"><span>↻</span><p><b>Clockwise = up a fifth.</b><br />Counter-clockwise = up a fourth.</p></div>
+        </div>
+      </div>
+    </section>
+
     <section class="test wrap" id="test" aria-labelledby="test-title">
       <div class="section-head test-head">
-        <div><p class="step-label">04 / TEST</p><h2 id="test-title">Now find every <span data-note>C</span>.</h2></div>
+        <div><p class="step-label">07 / TEST</p><h2 id="test-title">Now find every <span data-note>C</span>.</h2></div>
         <div class="scoreboard"><div><b id="foundCount">0</b><span>FOUND</span></div><div><b id="missCount">0</b><span>MISSES</span></div><div><b id="timer">0:00</b><span>TIME</span></div></div>
       </div>
       <div class="quiz-card" id="quizCard">
@@ -97,7 +155,7 @@
     </section>
 
     <footer>
-      <div class="wrap footer-inner"><div><p class="footer-kicker">TODAY’S PRACTICE</p><h2>One note. Five minutes.<br />Then go play music.</h2></div><a href="#top">Start again ↑</a></div>
+      <div class="wrap footer-inner"><div><p class="footer-kicker">TODAY’S PATHWAY</p><h2>One note → one chord<br />→ one whole key.</h2></div><a href="#top">Start again ↑</a></div>
     </footer>
   </main>
   <script src="app.js"></script>

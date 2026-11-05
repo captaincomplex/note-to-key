@@ -2,7 +2,9 @@ const NOTES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const CHROMATIC=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const OPEN=['E','B','G','D','A','E'];
 const OPEN_SEMITONES=[4,11,7,2,9,4];
-let target='C', view='all', traceConnections=true, startedAt=null, timerId=null, misses=0, found=new Set();
+const TRIADS={major:{label:'major',intervals:[0,4,7],formula:['1','3','5']},minor:{label:'minor',intervals:[0,3,7],formula:['1','♭3','5']},diminished:{label:'diminished',intervals:[0,3,6],formula:['1','♭3','♭5']}};
+const CHORD_TYPES={major:{label:'major',intervals:[0,4,7],formula:['1','3','5']},minor:{label:'minor',intervals:[0,3,7],formula:['1','♭3','5']},diminished:{label:'diminished',intervals:[0,3,6],formula:['1','♭3','♭5']},'7':{label:'7',intervals:[0,4,7,10],formula:['1','3','5','♭7']},maj7:{label:'major 7',intervals:[0,4,7,11],formula:['1','3','5','7']},min7:{label:'minor 7',intervals:[0,3,7,10],formula:['1','♭3','5','♭7']}};
+let target='C', view='all', traceConnections=true, harmonyQuality='major', chordType='major', audioEngine=null, startedAt=null, timerId=null, misses=0, found=new Set();
 
 const enharmonicIndex={'D♭':1,'D♯':3,'G♭':6,'G♯':8,'A♯':10};
 const idx=n=>enharmonicIndex[n] ?? CHROMATIC.indexOf(n);
@@ -62,20 +64,27 @@ function drawConnections(board){
 }
 
 function setTarget(note){
-  target=note;document.querySelectorAll('[data-note]').forEach(el=>el.textContent=target);document.querySelector('#heroNote').textContent=target;
+  target=CHROMATIC[idx(note)];document.querySelectorAll('[data-note]').forEach(el=>el.textContent=target);document.querySelector('#heroNote').textContent=target;
   buildPicker();buildBoard(document.querySelector('#learnBoard'));resetQuiz();
   const positionCount=targetCells().length;
   document.querySelector('#shapeStrip').innerHTML=`<span class="shape-chip"><i></i>${positionCount} positions</span><span class="shape-chip"><i></i>6 strings</span><span class="shape-chip"><i></i>1 repeating pattern</span>`;
+  renderTheory();
 }
 
-function pluck(s,f,sourceCell){
-  const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;
-  vibrateString(sourceCell?.closest('.fretboard'),s);
-  const ctx=new AudioCtx(),midi=[64,59,55,50,45,40][s]+f,freq=440*Math.pow(2,(midi-69)/12),duration=1.7,rate=ctx.sampleRate,length=Math.floor(rate*duration),period=Math.max(2,Math.round(rate/freq));
-  const buffer=ctx.createBuffer(1,length,rate),data=buffer.getChannelData(0);for(let i=0;i<period;i++)data[i]=(Math.random()*2-1)*.72;
-  for(let i=period;i<length;i++)data[i]=.9965*.5*(data[i-period]+data[i-period+1]);
-  const source=ctx.createBufferSource(),body=ctx.createBiquadFilter(),air=ctx.createBiquadFilter(),gain=ctx.createGain();source.buffer=buffer;body.type='peaking';body.frequency.value=180;body.Q.value=1.2;body.gain.value=5;air.type='lowpass';air.frequency.value=3600;air.Q.value=.7;gain.gain.setValueAtTime(.8,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+duration);
-  source.connect(body).connect(air).connect(gain).connect(ctx.destination);source.start();
+function getAudio(){
+  if(audioEngine)return audioEngine;const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return null;const ctx=new AudioCtx(),input=ctx.createGain(),warmth=ctx.createBiquadFilter(),body=ctx.createBiquadFilter(),air=ctx.createBiquadFilter(),compressor=ctx.createDynamicsCompressor(),master=ctx.createGain();
+  warmth.type='lowshelf';warmth.frequency.value=260;warmth.gain.value=5;body.type='peaking';body.frequency.value=118;body.Q.value=1.15;body.gain.value=5.5;air.type='highshelf';air.frequency.value=2100;air.gain.value=-9;compressor.threshold.value=-18;compressor.knee.value=16;compressor.ratio.value=3;compressor.attack.value=.005;compressor.release.value=.22;master.gain.value=.72;input.connect(warmth).connect(body).connect(air).connect(compressor).connect(master).connect(ctx.destination);audioEngine={ctx,input};return audioEngine;
+}
+
+function playPitch(midi,delay=0,velocity=1){
+  const engine=getAudio();if(!engine)return;const {ctx,input}=engine;if(ctx.state==='suspended')ctx.resume();const freq=440*Math.pow(2,(midi-69)/12),duration=2.35,rate=ctx.sampleRate,length=Math.floor(rate*duration),period=Math.max(2,Math.round(rate/freq)),buffer=ctx.createBuffer(1,length,rate),data=buffer.getChannelData(0),seed=new Float32Array(period);
+  let last=0;for(let i=0;i<period;i++){const noise=Math.random()*2-1;last=.72*last+.28*noise;const pickShape=Math.sin(Math.PI*i/period);seed[i]=last*pickShape*.72}for(let i=0;i<period;i++)data[i]=seed[i];
+  const damping=Math.max(.9905,Math.min(.9976,.9982-freq/120000));for(let i=period;i<length;i++){const a=data[i-period],b=data[i-period+1]||a,c=i>period+1?data[i-period-1]:a;data[i]=damping*(.18*c+.64*a+.18*b)}
+  const source=ctx.createBufferSource(),noteFilter=ctx.createBiquadFilter(),gain=ctx.createGain();source.buffer=buffer;noteFilter.type='lowpass';noteFilter.frequency.value=Math.min(3600,1700+freq*2.2);noteFilter.Q.value=.45;const at=ctx.currentTime+delay;gain.gain.setValueAtTime(.001,at);gain.gain.exponentialRampToValueAtTime(.72*velocity,at+.008);gain.gain.exponentialRampToValueAtTime(.001,at+duration);source.connect(noteFilter).connect(gain).connect(input);source.start(at);source.stop(at+duration+.05);
+}
+
+function pluck(s,f,sourceCell,delay=0){
+  vibrateString(sourceCell?.closest('.fretboard'),s);playPitch([64,59,55,50,45,40][s]+f,delay,.92);
 }
 
 function vibrateString(board,s){
@@ -97,9 +106,68 @@ function updateScore(){const total=targetCells().length;document.querySelector('
 function finishQuiz(){clearInterval(timerId);updateTimer();const time=document.querySelector('#timer').textContent;document.querySelector('#resultDetail').textContent=`${targetCells().length} positions in ${time}, with ${misses} ${misses===1?'miss':'misses'}.`;document.querySelector('#quizResult').classList.add('show')}
 function resetQuiz(){clearInterval(timerId);startedAt=null;timerId=null;misses=0;found=new Set();document.querySelector('#timer').textContent='0:00';document.querySelector('#quizResult').classList.remove('show');buildBoard(document.querySelector('#quizBoard'),true);updateScore()}
 
+function toneRole(note,quality=harmonyQuality){
+  const diff=(idx(note)-idx(target)+12)%12,def=TRIADS[quality],at=def.intervals.indexOf(diff);if(at<0)return null;return[{cls:'root',short:'R',name:'Root'},{cls:'third',short:def.formula[1],name:'Third'},{cls:'fifth',short:def.formula[2],name:'Fifth'}][at];
+}
+
+function buildRoleBoard(){
+  const board=document.querySelector('#intervalBoard');if(!board)return;board.innerHTML='';
+  for(let s=0;s<6;s++)for(let f=0;f<=12;f++){
+    const note=noteAt(s,f),role=toneRole(note),cell=document.createElement('button');cell.type='button';cell.className='cell';cell.dataset.string=s;cell.dataset.fret=f;cell.setAttribute('aria-label',`${f===0?'open':`fret ${f}`} ${note}${role?`, ${role.name}`:''}`);
+    if([3,5,7,9,12].includes(f))cell.classList.add('marker');
+    if(f===0&&!role)cell.innerHTML=`<span class="string-letter">${OPEN[s]}</span>`;
+    else if(role){cell.innerHTML=`<span class="role-note ${role.cls}">${note}<em>${role.short}</em></span>`;cell.addEventListener('click',()=>pluck(s,f,cell))}
+    else{const num=document.createElement('span');num.className='fret-num';num.textContent=s===0?f:'';cell.append(num);cell.tabIndex=-1}
+    board.append(cell);
+  }
+}
+
+function renderTheory(){
+  const rootPicker=document.querySelector('#harmonyRoot');if(!rootPicker)return;
+  rootPicker.innerHTML=NOTES.map(n=>`<button class="${n===target?'active':''}" data-root="${n}" aria-pressed="${n===target}">${n}</button>`).join('');rootPicker.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTarget(b.dataset.root)));
+  document.querySelectorAll('#triadQuality button').forEach(b=>b.classList.toggle('active',b.dataset.quality===harmonyQuality));
+  const def=TRIADS[harmonyQuality],notes=def.intervals.map(n=>CHROMATIC[(idx(target)+n)%12]);document.querySelector('#triadName').textContent=`${target} ${def.label}`;document.querySelector('#triadFormula').innerHTML=def.formula.map(x=>`<span>${x}</span>`).join('');
+  const classes=['root','third','fifth'],names=['ROOT','THIRD','FIFTH'];document.querySelector('#toneRoles').innerHTML=notes.map((note,i)=>`<div class="tone-role ${classes[i]}"><i>${note}</i><b>${names[i]}</b><small>${def.formula[i]}</small></div>`).join('');
+  buildRoleBoard();renderChordLab();renderCircle();
+}
+
+function renderChordLab(){
+  const def=CHORD_TYPES[chordType];if(!def)return;document.querySelectorAll('#chordMenu button').forEach(b=>b.classList.toggle('active',b.dataset.chord===chordType));document.querySelector('#chordName').textContent=`${target} ${def.label}`;
+  const notes=def.intervals.map(n=>CHROMATIC[(idx(target)+n)%12]);document.querySelector('#noteStack').innerHTML=notes.map((n,i)=>`<span class="stack-note" title="${def.formula[i]}">${n}</span>`).join('');
+  const heights=[68,112,156,196];document.querySelector('#voicingVisual').innerHTML=notes.map((n,i)=>`<div class="voice-bar" style="height:${heights[i]}px"><span>${n}</span></div>`).join('');
+}
+
+function playChordAt(rootIndex,type='major',delay=0,strum=.028){
+  const def=CHORD_TYPES[type]||CHORD_TYPES.major,rootMidi=60+rootIndex,voicing=[rootMidi-12,rootMidi-5,...def.intervals.map(n=>rootMidi+n),rootMidi+12];voicing.forEach((m,i)=>playPitch(m,delay+i*strum,i===0?.78:.62));
+}
+
+function playSelectedChord(type=chordType){
+  playChordAt(idx(target),type);const bars=[...document.querySelectorAll('.voice-bar')];bars.forEach((bar,i)=>setTimeout(()=>{bar.classList.add('playing');setTimeout(()=>bar.classList.remove('playing'),360)},i*55));
+}
+
+const CIRCLE=[
+  {label:'C',i:0,minor:'A minor',sig:'NO SHARPS OR FLATS'},{label:'G',i:7,minor:'E minor',sig:'1 SHARP · F♯'},{label:'D',i:2,minor:'B minor',sig:'2 SHARPS · F♯ C♯'},{label:'A',i:9,minor:'F♯ minor',sig:'3 SHARPS · F♯ C♯ G♯'},
+  {label:'E',i:4,minor:'C♯ minor',sig:'4 SHARPS · F♯ C♯ G♯ D♯'},{label:'B',i:11,minor:'G♯ minor',sig:'5 SHARPS · F♯ C♯ G♯ D♯ A♯'},{label:'F♯',i:6,minor:'E♭ minor',sig:'6 SHARPS / 6 FLATS'},{label:'D♭',i:1,minor:'B♭ minor',sig:'5 FLATS · B♭ E♭ A♭ D♭ G♭'},
+  {label:'A♭',i:8,minor:'F minor',sig:'4 FLATS · B♭ E♭ A♭ D♭'},{label:'E♭',i:3,minor:'C minor',sig:'3 FLATS · B♭ E♭ A♭'},{label:'B♭',i:10,minor:'G minor',sig:'2 FLATS · B♭ E♭'},{label:'F',i:5,minor:'D minor',sig:'1 FLAT · B♭'}
+];
+const polar=(r,a)=>({x:260+r*Math.cos(a*Math.PI/180),y:260+r*Math.sin(a*Math.PI/180)});
+function ringPath(r1,r2,a1,a2){const p1=polar(r1,a1),p2=polar(r1,a2),p3=polar(r2,a2),p4=polar(r2,a1);return`M ${p1.x} ${p1.y} A ${r1} ${r1} 0 0 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${r2} ${r2} 0 0 0 ${p4.x} ${p4.y} Z`}
+
+function renderCircle(){
+  const svg=document.querySelector('#circleSvg');if(!svg)return;svg.innerHTML='';const activeIndex=idx(target);
+  CIRCLE.forEach((entry,n)=>{const start=-105+n*30,end=start+30,mid=start+15,majorPos=polar(202,mid),minorPos=polar(143,mid),g=document.createElementNS('http://www.w3.org/2000/svg','g');g.classList.add('circle-segment');if(entry.i===activeIndex)g.classList.add('active');g.innerHTML=`<path class="circle-major" d="${ringPath(238,169,start,end)}"></path><path class="circle-minor" d="${ringPath(164,114,start,end)}"></path><text class="circle-label" x="${majorPos.x}" y="${majorPos.y+6}">${entry.label}</text><text class="circle-minor-label" x="${minorPos.x}" y="${minorPos.y+4}">${entry.minor.replace(' minor','m')}</text>`;g.addEventListener('click',()=>setTarget(CHROMATIC[entry.i]));svg.append(g)});
+  const entry=CIRCLE.find(x=>x.i===activeIndex)||CIRCLE[0],iv=CHROMATIC[(activeIndex+5)%12],v=CHROMATIC[(activeIndex+7)%12];document.querySelector('#circleKey').textContent=entry.label;document.querySelector('#circleMinor').textContent=entry.minor;document.querySelector('#keySignature').textContent=entry.sig;document.querySelector('#keyName').textContent=entry.label;document.querySelector('#progression').innerHTML=[['I',target],['IV',iv],['V',v],['I',target]].map(([d,n])=>`<div class="degree-card"><b>${d}</b><span>${n}</span></div>`).join('');
+}
+
 document.querySelectorAll('.view-tab[data-view]').forEach(btn=>btn.addEventListener('click',()=>{view=btn.dataset.view;document.querySelectorAll('.view-tab[data-view]').forEach(b=>b.classList.toggle('active',b===btn));document.querySelector('#learnBoard').classList.toggle('anchor-hidden',view==='anchors')}));
 document.querySelector('#traceToggle').addEventListener('click',e=>{traceConnections=!traceConnections;e.currentTarget.classList.toggle('active',traceConnections);e.currentTarget.setAttribute('aria-pressed',traceConnections);document.querySelector('#learnBoard').classList.toggle('connections-off',!traceConnections)});
 document.querySelector('#resetQuiz').addEventListener('click',resetQuiz);
 document.querySelector('#nextNote').addEventListener('click',()=>{const next=NOTES[(NOTES.indexOf(target)+1)%NOTES.length];setTarget(next);document.querySelector('.picker-panel').scrollIntoView({behavior:'smooth'})});
 document.querySelector('#heroNote').addEventListener('click',()=>document.querySelector('.picker-panel').scrollIntoView({behavior:'smooth'}));
+document.querySelectorAll('#triadQuality button').forEach(btn=>btn.addEventListener('click',()=>{harmonyQuality=btn.dataset.quality;renderTheory()}));
+document.querySelectorAll('#chordMenu button').forEach(btn=>btn.addEventListener('click',()=>{chordType=btn.dataset.chord;renderChordLab()}));
+document.querySelector('#playTriad').addEventListener('click',()=>playChordAt(idx(target),harmonyQuality));
+document.querySelector('#playArpeggio').addEventListener('click',()=>{const def=TRIADS[harmonyQuality],root=60+idx(target);def.intervals.forEach((n,i)=>playPitch(root+n,i*.42,.75))});
+document.querySelector('#strumChord').addEventListener('click',()=>playSelectedChord());
+document.querySelector('#playProgression').addEventListener('click',()=>{const r=idx(target);[[r,0],[r+5,1.15],[r+7,2.3],[r,3.45]].forEach(([root,delay])=>playChordAt(root%12,'major',delay,.022))});
 setTarget('C');
