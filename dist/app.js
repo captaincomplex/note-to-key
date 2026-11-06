@@ -26,9 +26,18 @@ const CHORD_REASONS={
   maj7:{title:'Stable triad, tense leading tone.',body:'A major seventh chord keeps the major triad and adds a note one semitone below the octave. The triad feels settled while the seventh leans delicately upward.'},
   min7:{title:'Minor colour with a softer edge.',body:'A minor seventh chord adds ♭7 to a minor triad. It has tension, but no dominant tritone between 3 and ♭7, so the pull is gentler and more open-ended.'}
 };
+const MODES=[
+  {name:'Ionian',family:'major',intervals:[0,2,4,5,7,9,11],formula:['1','2','3','4','5','6','7'],characteristic:11,characteristicName:'Major seventh',description:'The major scale itself: bright, balanced and strongly resolved.',colour:'The 7 sits one fret below the root, creating a clear upward pull into home.',parentOffset:0},
+  {name:'Dorian',family:'minor',intervals:[0,2,3,5,7,9,10],formula:['1','2','♭3','4','5','6','♭7'],characteristic:9,characteristicName:'Natural sixth',description:'A minor sound with lift, motion and a little more light than natural minor.',colour:'The natural 6 separates Dorian from ordinary minor and gives it its hopeful, soulful rise.',parentOffset:10},
+  {name:'Phrygian',family:'minor',intervals:[0,1,3,5,7,8,10],formula:['1','♭2','♭3','4','5','♭6','♭7'],characteristic:1,characteristicName:'Flat second',description:'Dark, compressed and immediately tense around the root.',colour:'The ♭2 is only one fret above home. That close rub creates Phrygian’s unmistakable bite.',parentOffset:8},
+  {name:'Lydian',family:'major',intervals:[0,2,4,6,7,9,11],formula:['1','2','3','♯4','5','6','7'],characteristic:6,characteristicName:'Sharp fourth',description:'A major sound made weightless, open and slightly otherworldly.',colour:'The ♯4 avoids the ordinary fourth’s pull down to the third and floats toward the fifth instead.',parentOffset:7},
+  {name:'Mixolydian',family:'major',intervals:[0,2,4,5,7,9,10],formula:['1','2','3','4','5','6','♭7'],characteristic:10,characteristicName:'Flat seventh',description:'Major without the formal leading tone: earthy, bluesy and built for dominant grooves.',colour:'The ♭7 softens the pull into the octave and creates the sound of a dominant seventh chord.',parentOffset:5},
+  {name:'Aeolian',family:'minor',intervals:[0,2,3,5,7,8,10],formula:['1','2','♭3','4','5','♭6','♭7'],characteristic:8,characteristicName:'Flat sixth',description:'The natural minor scale: dark, familiar and emotionally direct.',colour:'The ♭6 deepens the minor colour and often falls to the fifth in a strong, dramatic gesture.',parentOffset:3},
+  {name:'Locrian',family:'diminished',intervals:[0,1,3,5,6,8,10],formula:['1','♭2','♭3','4','♭5','♭6','♭7'],characteristic:6,characteristicName:'Flat fifth',description:'Unstable by design: its home chord is diminished, so even the tonic feels unresolved.',colour:'The ♭5 removes the root’s stable perfect fifth. Home has tension built into its frame.',parentOffset:1}
+];
 const SAMPLE_FILES=['audio/high-e.ogg','audio/b.ogg','audio/g.ogg','audio/d.ogg','audio/a.ogg','audio/low-e.ogg'];
 const STRING_MIDI=[64,59,55,50,45,40];
-let target='C', view='all', traceConnections=true, harmonyQuality='major', chordType='major', selectedInterval=4, audioEngine=null, samplePromise=null, progressionTimers=[], startedAt=null, timerId=null, misses=0, found=new Set();
+let target='C', view='all', traceConnections=true, harmonyQuality='major', chordType='major', selectedInterval=4, selectedMode=0, audioEngine=null, samplePromise=null, progressionTimers=[], modeTimers=[], startedAt=null, timerId=null, misses=0, found=new Set();
 
 const enharmonicIndex={'D♭':1,'D♯':3,'G♭':6,'G♯':8,'A♯':10};
 const idx=n=>enharmonicIndex[n] ?? CHROMATIC.indexOf(n);
@@ -158,7 +167,37 @@ function renderTheory(){
   document.querySelectorAll('#triadQuality button').forEach(b=>b.classList.toggle('active',b.dataset.quality===harmonyQuality));
   const def=TRIADS[harmonyQuality],notes=def.intervals.map(n=>CHROMATIC[(idx(target)+n)%12]);document.querySelector('#triadName').textContent=`${target} ${def.label}`;document.querySelector('#triadFormula').innerHTML=def.formula.map(x=>`<span>${x}</span>`).join('');
   const classes=['root','third','fifth'],names=['ROOT','THIRD','FIFTH'];document.querySelector('#toneRoles').innerHTML=notes.map((note,i)=>`<div class="tone-role ${classes[i]}"><i>${note}</i><b>${names[i]}</b><small>${def.formula[i]}</small></div>`).join('');
-  buildRoleBoard();renderChordLab();renderCircle();
+  buildRoleBoard();renderChordLab();renderCircle();renderModes();
+}
+
+function modeRole(note){
+  const mode=MODES[selectedMode],distance=(idx(note)-idx(target)+12)%12,degree=mode.intervals.indexOf(distance);if(degree<0)return null;
+  return{degree,formula:mode.formula[degree],kind:distance===0?'root':distance===mode.characteristic?'colour':'scale'};
+}
+
+function buildModeBoard(){
+  const board=document.querySelector('#modeBoard');if(!board)return;board.innerHTML='';
+  for(let s=0;s<6;s++)for(let f=0;f<=12;f++){
+    const note=noteAt(s,f),role=modeRole(note),cell=document.createElement('button');cell.type='button';cell.className='cell';cell.dataset.string=s;cell.dataset.fret=f;cell.setAttribute('aria-label',`${f===0?'open':`fret ${f}`} ${note}${role?`, degree ${role.formula}`:''}`);
+    if([3,5,7,9,12].includes(f))cell.classList.add('marker');
+    if(f===0&&!role)cell.innerHTML=`<span class="string-letter">${OPEN[s]}</span>`;
+    else if(role){cell.innerHTML=`<span class="mode-note ${role.kind}" data-mode-degree="${role.degree}"><b>${note}</b><em>${role.formula}</em></span>`;cell.addEventListener('click',()=>pluck(s,f,cell))}
+    else{const num=document.createElement('span');num.className='fret-num';num.textContent=s===0?f:'';cell.append(num);cell.tabIndex=-1}
+    board.append(cell);
+  }
+}
+
+function clearModeAnimation(){modeTimers.forEach(clearTimeout);modeTimers=[];document.querySelectorAll('.mode-scale-note.playing,.mode-note.playing').forEach(el=>el.classList.remove('playing'))}
+function renderModes(){
+  const tabs=document.querySelector('#modeTabs');if(!tabs)return;clearModeAnimation();const mode=MODES[selectedMode],root=idx(target),notes=mode.intervals.map(step=>CHROMATIC[(root+step)%12]);
+  tabs.innerHTML=MODES.map((item,i)=>`<button class="${i===selectedMode?'active':''}" data-mode="${i}" aria-pressed="${i===selectedMode}"><span>${i+1}</span><b>${item.name}</b><small>${item.family}</small></button>`).join('');tabs.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{selectedMode=+button.dataset.mode;renderModes()}));
+  document.querySelector('#modeFamily').textContent=`${mode.family.toUpperCase()} FAMILY`;document.querySelector('#modeName').textContent=mode.name;document.querySelector('#modeDescription').textContent=mode.description;document.querySelector('#modeCharacteristic').textContent=mode.formula[mode.intervals.indexOf(mode.characteristic)];document.querySelector('#modeCharacteristicName').textContent=mode.characteristicName;document.querySelector('#modeCharacteristicCopy').textContent=mode.colour;
+  document.querySelector('#modeNotes').innerHTML=notes.map((note,i)=>`<span class="mode-scale-note ${i===0?'root':mode.intervals[i]===mode.characteristic?'colour':''}" data-mode-degree="${i}"><b>${note}</b><small>${mode.formula[i]}</small></span>`).join('');document.querySelector('#modeFormula').innerHTML=mode.formula.map((degree,i)=>`<span class="${i===0?'root':mode.intervals[i]===mode.characteristic?'colour':''}">${degree}</span>`).join('');
+  const parent=CHROMATIC[(root+mode.parentOffset)%12];document.querySelector('#parentScale').innerHTML=`Same notes as <b>${parent} major</b> — but <b>${target}</b> is home.`;buildModeBoard();
+}
+
+function playSelectedMode(){
+  clearModeAnimation();const mode=MODES[selectedMode],root=60+idx(target),sequence=[...mode.intervals,12];sequence.forEach((step,i)=>{const delay=i*.32;playPitch(root+step,delay,.76);modeTimers.push(setTimeout(()=>{document.querySelectorAll('.mode-scale-note.playing,.mode-note.playing').forEach(el=>el.classList.remove('playing'));document.querySelectorAll(`[data-mode-degree="${i%7}"]`).forEach(el=>el.classList.add('playing'))},delay*1000))});modeTimers.push(setTimeout(clearModeAnimation,sequence.length*320+450));
 }
 
 function renderChordLab(){
@@ -214,4 +253,5 @@ document.querySelector('#playArpeggio').addEventListener('click',()=>{const def=
 document.querySelector('#strumChord').addEventListener('click',()=>playSelectedChord());
 document.querySelector('#playInterval').addEventListener('click',()=>{const root=60+idx(target);playPitch(root,0,.78);playPitch(root+selectedInterval,.035,.72)});
 document.querySelector('#playProgression').addEventListener('click',playCircleProgression);
+document.querySelector('#playMode').addEventListener('click',playSelectedMode);
 setTarget('C');

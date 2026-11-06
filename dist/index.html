@@ -14,7 +14,7 @@
       <span class="brand-dot" aria-hidden="true"></span>
       NOTE TO KEY
     </a>
-    <nav class="top-nav" aria-label="Lessons"><a href="#learn">Notes</a><a href="#intervals">Intervals</a><a href="#chords">Chords</a><a href="#circle">Circle</a></nav>
+    <nav class="top-nav" aria-label="Lessons"><a href="#learn">Notes</a><a href="#intervals">Intervals</a><a href="#chords">Chords</a><a href="#circle">Circle</a><a href="#modes">Modes</a></nav>
     <div class="top-meta"><span>STANDARD TUNING</span><span class="divider"></span><span>12 FRETS</span></div>
   </header>
 
@@ -153,9 +153,38 @@
       </div>
     </section>
 
+    <section class="modes-section" id="modes" aria-labelledby="modes-title">
+      <div class="wrap">
+        <div class="section-head modes-head">
+          <div><p class="step-label dark">07 / MODES</p><h2 id="modes-title">One scale.<br />Seven centres.</h2></div>
+          <p>Modes are not seven unrelated patterns. They are seven ways of making a different note feel like home — each with one interval that reveals its colour.</p>
+        </div>
+        <div class="mode-tabs" id="modeTabs" role="group" aria-label="Choose a musical mode"></div>
+        <div class="mode-stage">
+          <div class="mode-story">
+            <small id="modeFamily">MAJOR FAMILY</small>
+            <h3><span data-note>C</span> <span id="modeName">Ionian</span></h3>
+            <p id="modeDescription"></p>
+            <div class="mode-insight"><span id="modeCharacteristic">7</span><div><small>CHARACTERISTIC TONE</small><b id="modeCharacteristicName">Major seventh</b><p id="modeCharacteristicCopy"></p></div></div>
+            <button class="mode-play" id="playMode">▶ Play the mode</button>
+          </div>
+          <div class="mode-map">
+            <div class="mode-note-row" id="modeNotes" aria-label="Notes in the selected mode"></div>
+            <div class="mode-formula" id="modeFormula"></div>
+            <p class="parent-scale" id="parentScale"></p>
+          </div>
+        </div>
+        <div class="board-card mode-board-card">
+          <div class="board-toolbar"><div class="mode-legend"><span><i class="mode-key root"></i>Root</span><span><i class="mode-key colour"></i>Characteristic</span><span><i class="mode-key scale"></i>Other scale tones</span></div><span class="board-hint">Tap any tone to hear it</span></div>
+          <div class="fretboard-scroll"><div id="modeBoard" class="fretboard mode-board" aria-label="Selected mode across the guitar fretboard"></div></div>
+        </div>
+        <p class="mode-rule"><b>The useful shortcut:</b> compare every mode with a major or natural-minor scale from the same root. Dorian is minor with a natural 6; Lydian is major with a sharp 4; Mixolydian is major with a flat 7.</p>
+      </div>
+    </section>
+
     <section class="test wrap" id="test" aria-labelledby="test-title">
       <div class="section-head test-head">
-        <div><p class="step-label">07 / TEST</p><h2 id="test-title">Now find every <span data-note>C</span>.</h2></div>
+        <div><p class="step-label">08 / TEST</p><h2 id="test-title">Now find every <span data-note>C</span>.</h2></div>
         <div class="scoreboard"><div><b id="foundCount">0</b><span>FOUND</span></div><div><b id="missCount">0</b><span>MISSES</span></div><div><b id="timer">0:00</b><span>TIME</span></div></div>
       </div>
       <div class="quiz-card" id="quizCard">

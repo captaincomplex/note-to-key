@@ -6,6 +6,7 @@ Understand the guitar, one note at a time. Note to Key is an interactive, browse
 - root, third, and fifth interval roles;
 - major, minor, diminished, dominant 7, major 7, and minor 7 chords;
 - the circle of fifths, relative minors, key signatures, and I–IV–V–I progressions.
+- all seven diatonic modes, their characteristic intervals, parent scales, fretboard maps, and playable scale demonstrations.
 
 ## Live site
 
