@@ -122,12 +122,13 @@
         <div class="relationship-lab" id="relationships">
           <div class="relationship-heading"><div><p class="step-label dark">WHY IT SOUNDS THAT WAY</p><h3>The distance is<br />the character.</h3></div><p>Intervals are measured in semitones — one fret at a time. The same two notes can feel settled or tense depending on their distance and musical context.</p></div>
           <div class="chord-reason" id="chordReason"></div>
+          <div class="why-steps" id="whySteps"></div>
           <div class="interval-explorer">
             <div class="interval-explorer-head"><div><small>FROM THE ROOT</small><h4>Explore every relationship to <span data-note>C</span>.</h4></div><button class="hear-interval" id="playInterval">▶ Hear together</button></div>
             <div class="interval-rail" id="intervalRail" role="group" aria-label="Choose an interval"></div>
             <div class="interval-detail">
               <div class="interval-symbol" id="intervalSymbol">M3</div>
-              <div><small id="intervalDistance">4 SEMITONES</small><h4 id="intervalName">Major third</h4><p id="intervalDescription"></p><p class="ratio-note" id="intervalRatio"></p></div>
+              <div><small id="intervalDistance">4 SEMITONES</small><div class="interval-title-line"><h4 id="intervalName">Major third</h4><span class="ratio-badge" id="intervalRatioBadge">5:4</span></div><p id="intervalDescription"></p><p class="ratio-note" id="intervalRatio"></p></div>
               <div class="tension"><div class="tension-head"><span>STABILITY</span><b id="stabilityLabel">CONSONANT</b></div><div class="tension-track"><span id="tensionBar"></span></div><small>More colour and roughness →</small></div>
             </div>
           </div>
@@ -175,7 +176,7 @@
           </div>
         </div>
         <div class="board-card mode-board-card">
-          <div class="board-toolbar"><div class="mode-legend"><span><i class="mode-key root"></i>Root</span><span><i class="mode-key colour"></i>Characteristic</span><span><i class="mode-key scale"></i>Other scale tones</span></div><span class="board-hint">Tap any tone to hear it</span></div>
+          <div class="board-toolbar"><div class="mode-legend"><span><i class="mode-key root"></i>Root</span><span><i class="mode-key colour"></i>Characteristic</span><span><i class="mode-key scale"></i>Route tones</span></div><span class="board-hint">One playable octave · tap any tone</span></div>
           <div class="fretboard-scroll"><div id="modeBoard" class="fretboard mode-board" aria-label="Selected mode across the guitar fretboard"></div></div>
         </div>
         <p class="mode-rule"><b>The useful shortcut:</b> compare every mode with a major or natural-minor scale from the same root. Dorian is minor with a natural 6; Lydian is major with a sharp 4; Mixolydian is major with a flat 7.</p>

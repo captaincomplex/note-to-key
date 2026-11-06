@@ -19,12 +19,12 @@ const INTERVALS=[
   {symbol:'7',name:'Major seventh',ratio:'15:8',tension:78,description:'Only one fret below the octave, so it presses upward toward the root. In a major-7 chord that tension feels smooth, luminous and sophisticated.'}
 ];
 const CHORD_REASONS={
-  major:{title:'The third makes it major.',body:'A major triad is root + major third + perfect fifth: 0, 4 and 7 semitones. “Major” names the third; the perfect fifth is shared with the minor triad.'},
-  minor:{title:'Move the third down one fret.',body:'A minor triad is 0, 3 and 7 semitones. Only the third changes. That one-semitone move changes the chord’s identity while the root and stable fifth stay put.'},
-  diminished:{title:'Two stacked minor thirds.',body:'A diminished triad is 0, 3 and 6 semitones. Flattening the fifth creates a tritone against the root, removing the stable 3:2 fifth and making the chord want to resolve.'},
-  '7':{title:'A tritone creates the pull.',body:'A dominant seventh adds ♭7 to a major triad. The major third and minor seventh sit a tritone apart, pushing strongly toward the root and third of the next chord.'},
-  maj7:{title:'Stable triad, tense leading tone.',body:'A major seventh chord keeps the major triad and adds a note one semitone below the octave. The triad feels settled while the seventh leans delicately upward.'},
-  min7:{title:'Minor colour with a softer edge.',body:'A minor seventh chord adds ♭7 to a minor triad. It has tension, but no dominant tritone between 3 and ♭7, so the pull is gentler and more open-ended.'}
+  major:{title:'1–3–5 means alternate scale notes.',body:'Count through the major scale and keep every other note: 1, skip 2, take 3, skip 4, take 5. That stacks a major third (4 frets) then a minor third (3 frets).',steps:[['1 · ROOT','Names home','The root is the pitch every other note is measured from.'],['3 · 5:4','Makes it major','The major third is four frets above the root. Its relatively simple wave relationship sounds clear and bright.'],['5 · 3:2','Locks the frame','The perfect fifth strongly reinforces the root. Major and minor chords both share this stable note.']]},
+  minor:{title:'The third moves; the frame stays.',body:'A minor triad is still 1–3–5 by scale position, but its third is flattened. Now the stack is 3 frets then 4: the root and fifth stay fixed while one fret changes the mood.',steps:[['1 · ROOT','Names home','The root remains the tonal centre.'],['♭3 · 6:5','Makes it minor','The minor third is three frets above the root. Its darker colour is the chord’s defining change.'],['5 · 3:2','Keeps it grounded','The same perfect fifth gives major and minor chords a shared, stable frame.']]},
+  diminished:{title:'Both stacked thirds are small.',body:'A diminished triad stacks two minor thirds: 3 frets + 3 frets. That puts ♭5 only six frets above the root, replacing the stable perfect fifth with a tritone.',steps:[['1 · ROOT','Names home','The root tries to act as the centre.'],['♭3 · 6:5','Starts minor','The flattened third gives the first layer a minor colour.'],['♭5 · 45:32','Removes the anchor','The tritone divides the octave in half. Without a 3:2 fifth, the chord feels suspended and wants to move.']]},
+  '7':{title:'The chord contains its own argument.',body:'Start with a major 1–3–5, then add ♭7. The 3 and ♭7 are six frets apart — a tritone — so they pull in opposite directions toward the next chord.',steps:[['1–3–5','Major foundation','The major triad sounds stable on its own.'],['♭7 · 9:5','Opens the top','The flat seventh weakens the sense of arrival and adds bluesy colour.'],['3 ↔ ♭7','Creates direction','This inner tritone usually resolves inward by a fret, making V–I feel inevitable.']]},
+  maj7:{title:'Home and longing sound together.',body:'A major 1–3–5 says “arrived”, while 7 sits one fret below the octave root. You hear the settled triad and the upward pull at the same time.',steps:[['1–3–5','Stable foundation','The major triad establishes a clear home.'],['7 · 15:8','Leans upward','The major seventh is one fret below the octave and strongly anticipates it.'],['BOTH','Creates shimmer','Stability underneath delicate tension is the major-7 colour.']]},
+  min7:{title:'Minor colour, gentler tension.',body:'Add ♭7 to a minor 1–♭3–5. There is no tritone between the third and seventh, so the chord stays colourful without the dominant seventh’s urgent demand to resolve.',steps:[['1–♭3–5','Minor foundation','The flat third gives the chord its inward colour.'],['♭7 · 9:5','Adds space','The flat seventh broadens the chord without pointing sharply upward.'],['NO TRITONE','Softens the pull','The guide tones do not fight each other, so the sound can rest or keep moving.']]}
 };
 const MODES=[
   {name:'Ionian',family:'major',intervals:[0,2,4,5,7,9,11],formula:['1','2','3','4','5','6','7'],characteristic:11,characteristicName:'Major seventh',description:'The major scale itself: bright, balanced and strongly resolved.',colour:'The 7 sits one fret below the root, creating a clear upward pull into home.',parentOffset:0},
@@ -166,22 +166,31 @@ function renderTheory(){
   rootPicker.innerHTML=NOTES.map(n=>`<button class="${n===target?'active':''}" data-root="${n}" aria-pressed="${n===target}">${n}</button>`).join('');rootPicker.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTarget(b.dataset.root)));
   document.querySelectorAll('#triadQuality button').forEach(b=>b.classList.toggle('active',b.dataset.quality===harmonyQuality));
   const def=TRIADS[harmonyQuality],notes=def.intervals.map(n=>CHROMATIC[(idx(target)+n)%12]);document.querySelector('#triadName').textContent=`${target} ${def.label}`;document.querySelector('#triadFormula').innerHTML=def.formula.map(x=>`<span>${x}</span>`).join('');
-  const classes=['root','third','fifth'],names=['ROOT','THIRD','FIFTH'];document.querySelector('#toneRoles').innerHTML=notes.map((note,i)=>`<div class="tone-role ${classes[i]}"><i>${note}</i><b>${names[i]}</b><small>${def.formula[i]}</small></div>`).join('');
+  const classes=['root','third','fifth'],names=['ROOT','THIRD','FIFTH'];document.querySelector('#toneRoles').innerHTML=notes.map((note,i)=>`<button class="tone-role ${classes[i]}" data-tone-role="${i}" aria-label="Play ${note}, the ${names[i].toLowerCase()}"><i>${note}</i><b>${names[i]}</b><small>${def.formula[i]}</small></button>`).join('');document.querySelectorAll('#toneRoles button').forEach(button=>button.addEventListener('click',()=>playToneRole(+button.dataset.toneRole)));
   buildRoleBoard();renderChordLab();renderCircle();renderModes();
 }
+
+function animateToneRole(index,delay=0){setTimeout(()=>{const tone=document.querySelector(`[data-tone-role="${index}"]`);if(!tone)return;tone.classList.remove('playing');void tone.offsetWidth;tone.classList.add('playing');setTimeout(()=>tone.classList.remove('playing'),520)},delay*1000)}
+function playToneRole(index){const def=TRIADS[harmonyQuality];playPitch(60+idx(target)+def.intervals[index],0,.82);animateToneRole(index)}
 
 function modeRole(note){
   const mode=MODES[selectedMode],distance=(idx(note)-idx(target)+12)%12,degree=mode.intervals.indexOf(distance);if(degree<0)return null;
   return{degree,formula:mode.formula[degree],kind:distance===0?'root':distance===mode.characteristic?'colour':'scale'};
 }
 
+function getModePath(){
+  const mode=MODES[selectedMode],pitches=[...mode.intervals,12].map(step=>48+idx(target)+step),layers=pitches.map((midi,step)=>STRING_MIDI.map((base,s)=>({s,f:midi-base,midi,step,degree:step%7})).filter(pos=>pos.f>=0&&pos.f<=12)),costs=[],parents=[];
+  layers.forEach((layer,i)=>{costs[i]=[];parents[i]=[];layer.forEach((pos,j)=>{if(i===0){costs[i][j]=Math.abs(pos.f-5)*.18+Math.abs(pos.s-3)*.08;parents[i][j]=-1;return}let best=Infinity,bestParent=0;layers[i-1].forEach((prev,k)=>{const move=Math.abs(pos.f-prev.f)*1.15+Math.abs(pos.s-prev.s)*1.75+(pos.s===prev.s?.25:0),value=costs[i-1][k]+move;if(value<best){best=value;bestParent=k}});costs[i][j]=best;parents[i][j]=bestParent})});
+  let at=costs.at(-1).indexOf(Math.min(...costs.at(-1))),path=[];for(let i=layers.length-1;i>=0;i--){path.unshift(layers[i][at]);at=parents[i][at]}return path;
+}
+
 function buildModeBoard(){
-  const board=document.querySelector('#modeBoard');if(!board)return;board.innerHTML='';
+  const board=document.querySelector('#modeBoard');if(!board)return;board.innerHTML='';const path=getModePath(),route=new Map(path.map(pos=>[keyFor(pos.s,pos.f),pos]));
   for(let s=0;s<6;s++)for(let f=0;f<=12;f++){
-    const note=noteAt(s,f),role=modeRole(note),cell=document.createElement('button');cell.type='button';cell.className='cell';cell.dataset.string=s;cell.dataset.fret=f;cell.setAttribute('aria-label',`${f===0?'open':`fret ${f}`} ${note}${role?`, degree ${role.formula}`:''}`);
+    const note=noteAt(s,f),position=route.get(keyFor(s,f)),role=position?modeRole(note):null,cell=document.createElement('button');cell.type='button';cell.className='cell';cell.dataset.string=s;cell.dataset.fret=f;cell.setAttribute('aria-label',`${f===0?'open':`fret ${f}`} ${note}${role?`, route step ${position.step+1}, degree ${role.formula}`:''}`);
     if([3,5,7,9,12].includes(f))cell.classList.add('marker');
     if(f===0&&!role)cell.innerHTML=`<span class="string-letter">${OPEN[s]}</span>`;
-    else if(role){cell.innerHTML=`<span class="mode-note ${role.kind}" data-mode-degree="${role.degree}"><b>${note}</b><em>${role.formula}</em></span>`;cell.addEventListener('click',()=>pluck(s,f,cell))}
+    else if(role){cell.classList.add('route-cell');cell.innerHTML=`<span class="mode-note ${role.kind}" data-mode-degree="${role.degree}" data-path-step="${position.step}"><b>${note}</b><em>${role.formula}</em></span>`;cell.addEventListener('click',()=>pluck(s,f,cell))}
     else{const num=document.createElement('span');num.className='fret-num';num.textContent=s===0?f:'';cell.append(num);cell.tabIndex=-1}
     board.append(cell);
   }
@@ -197,7 +206,7 @@ function renderModes(){
 }
 
 function playSelectedMode(){
-  clearModeAnimation();const mode=MODES[selectedMode],root=60+idx(target),sequence=[...mode.intervals,12];sequence.forEach((step,i)=>{const delay=i*.32;playPitch(root+step,delay,.76);modeTimers.push(setTimeout(()=>{document.querySelectorAll('.mode-scale-note.playing,.mode-note.playing').forEach(el=>el.classList.remove('playing'));document.querySelectorAll(`[data-mode-degree="${i%7}"]`).forEach(el=>el.classList.add('playing'))},delay*1000))});modeTimers.push(setTimeout(clearModeAnimation,sequence.length*320+450));
+  clearModeAnimation();const mode=MODES[selectedMode],root=48+idx(target),sequence=[...mode.intervals,12],path=getModePath();sequence.forEach((step,i)=>{const delay=i*.38,position=path[i];playSample(root+step,position.s,delay,.78);modeTimers.push(setTimeout(()=>{document.querySelectorAll('.mode-scale-note.playing,.mode-note.playing').forEach(el=>el.classList.remove('playing'));document.querySelector(`.mode-scale-note[data-mode-degree="${i%7}"]`)?.classList.add('playing');document.querySelector(`.mode-note[data-path-step="${i}"]`)?.classList.add('playing');vibrateString(document.querySelector('#modeBoard'),position.s)},delay*1000))});modeTimers.push(setTimeout(clearModeAnimation,sequence.length*380+500));
 }
 
 function renderChordLab(){
@@ -209,8 +218,8 @@ function renderChordLab(){
 
 function renderRelationshipLab(){
   const rail=document.querySelector('#intervalRail');if(!rail)return;rail.innerHTML=INTERVALS.map((interval,i)=>`<button class="interval-step ${i===selectedInterval?'active':''}" data-interval="${i}" aria-pressed="${i===selectedInterval}"><b>${CHROMATIC[(idx(target)+i)%12]}</b><span>${interval.symbol}</span></button>`).join('');rail.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{selectedInterval=+button.dataset.interval;renderRelationshipLab()}));
-  const interval=INTERVALS[selectedInterval],other=CHROMATIC[(idx(target)+selectedInterval)%12],stability=interval.tension<=18?'VERY STABLE':interval.tension<=40?'CONSONANT':interval.tension<=65?'COLOURFUL':'DISSONANT';document.querySelector('#intervalSymbol').textContent=interval.symbol;document.querySelector('#intervalDistance').textContent=`${selectedInterval} ${selectedInterval===1?'SEMITONE':'SEMITONES'} · ${target} → ${other}`;document.querySelector('#intervalName').textContent=interval.name;document.querySelector('#intervalDescription').textContent=interval.description;document.querySelector('#intervalRatio').textContent=`Idealised frequency ratio: ${interval.ratio}. Equal-tempered frets closely approximate this relationship.`;document.querySelector('#stabilityLabel').textContent=stability;document.querySelector('#tensionBar').style.width=`${interval.tension}%`;
-  const def=CHORD_TYPES[chordType],reason=CHORD_REASONS[chordType],steps=def.intervals.slice(1).map((n,i)=>n-def.intervals[i]);document.querySelector('#chordReason').innerHTML=`<div class="reason-formula">${def.formula.map((f,i)=>`${i?'<i>+</i>':''}<span>${f}</span>`).join('')}</div><div class="reason-copy"><small>${target.toUpperCase()} ${def.label.toUpperCase()}</small><h4>${reason.title}</h4><p>${reason.body}</p></div><div class="semitone-stack"><b>${steps.join(' + ')}</b><span>SEMITONES BETWEEN STACKED NOTES</span></div>`;
+  const interval=INTERVALS[selectedInterval],other=CHROMATIC[(idx(target)+selectedInterval)%12],stability=interval.tension<=18?'VERY STABLE':interval.tension<=40?'CONSONANT':interval.tension<=65?'COLOURFUL':'DISSONANT';document.querySelector('#intervalSymbol').textContent=interval.symbol;document.querySelector('#intervalDistance').textContent=`${selectedInterval} ${selectedInterval===1?'SEMITONE':'SEMITONES'} · ${target} → ${other}`;document.querySelector('#intervalName').textContent=interval.name;document.querySelector('#intervalRatioBadge').textContent=interval.ratio;document.querySelector('#intervalDescription').textContent=interval.description;document.querySelector('#intervalRatio').textContent='Simple ratios mean the wave peaks meet more often. Fretted guitars use equal temperament, which closely approximates these ideal relationships.';document.querySelector('#stabilityLabel').textContent=stability;document.querySelector('#tensionBar').style.width=`${interval.tension}%`;
+  const def=CHORD_TYPES[chordType],reason=CHORD_REASONS[chordType],steps=def.intervals.slice(1).map((n,i)=>n-def.intervals[i]);document.querySelector('#chordReason').innerHTML=`<div class="reason-formula">${def.formula.map((f,i)=>`${i?'<i>+</i>':''}<span>${f}</span>`).join('')}</div><div class="reason-copy"><small>${target.toUpperCase()} ${def.label.toUpperCase()}</small><h4>${reason.title}</h4><p>${reason.body}</p></div><div class="semitone-stack"><b>${steps.join(' + ')}</b><span>FRETS BETWEEN EACH STACKED NOTE</span></div>`;document.querySelector('#whySteps').innerHTML=reason.steps.map(([label,title,copy],i)=>`<article><span>${String(i+1).padStart(2,'0')}</span><small>${label}</small><h4>${title}</h4><p>${copy}</p></article>`).join('');
 }
 
 function playChordAt(rootIndex,type='major',delay=0,strum=.028){
@@ -248,8 +257,8 @@ document.querySelector('#nextNote').addEventListener('click',()=>{const next=NOT
 document.querySelector('#heroNote').addEventListener('click',()=>document.querySelector('.picker-panel').scrollIntoView({behavior:'smooth'}));
 document.querySelectorAll('#triadQuality button').forEach(btn=>btn.addEventListener('click',()=>{harmonyQuality=btn.dataset.quality;renderTheory()}));
 document.querySelectorAll('#chordMenu button').forEach(btn=>btn.addEventListener('click',()=>{chordType=btn.dataset.chord;renderChordLab()}));
-document.querySelector('#playTriad').addEventListener('click',()=>playChordAt(idx(target),harmonyQuality));
-document.querySelector('#playArpeggio').addEventListener('click',()=>{const def=TRIADS[harmonyQuality],root=60+idx(target);def.intervals.forEach((n,i)=>playPitch(root+n,i*.42,.75))});
+document.querySelector('#playTriad').addEventListener('click',()=>{playChordAt(idx(target),harmonyQuality);[0,1,2].forEach(i=>animateToneRole(i,i*.04))});
+document.querySelector('#playArpeggio').addEventListener('click',()=>{const def=TRIADS[harmonyQuality],root=60+idx(target);def.intervals.forEach((n,i)=>{playPitch(root+n,i*.42,.75);animateToneRole(i,i*.42)})});
 document.querySelector('#strumChord').addEventListener('click',()=>playSelectedChord());
 document.querySelector('#playInterval').addEventListener('click',()=>{const root=60+idx(target);playPitch(root,0,.78);playPitch(root+selectedInterval,.035,.72)});
 document.querySelector('#playProgression').addEventListener('click',playCircleProgression);
